@@ -1,76 +1,73 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    // replace YOUR_DOCKERHUB_USERNAME with your docker hub username
-    IMAGE_NAME = "vishnu933/todo-app"
-    IMAGE_TAG  = "${env.GIT_COMMIT?.take(7) ?: 'latest'}"
-    FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    environment {
+        IMAGE = "prathamchawdhry/ci-cd-demo2:jenkins"
+        VENV = ".venv"
+        PYTHON = "/usr/bin/python3" 
     }
 
-    stage('Install dependencies') {
-      steps {
-        // Use PowerShell on Windows agents (change to 'sh' if on Linux)
-        powershell label: 'pip install requirements', script: '''
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-        '''
-      }
-    }
+    stages {
 
-    stage('Run tests') {
-      steps {
-        powershell label: 'run pytest', script: '''
-          pytest -q
-        '''
-      }
-    }
-
-    stage('Build Docker image') {
-      when {
-        expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-      }
-      steps {
-        script {
-          // this uses the Docker Pipeline plugin
-          dockerImage = docker.build(env.FULL_IMAGE)
+        stage('Checkout') {
+            steps {
+                checkout([$class: 'GitSCM',
+                  branches: [[name: '*/main']],
+                  userRemoteConfigs: [[
+                    url: 'https://github.com/pratham-chawdhry/ci-cd-demo2.git',
+                    credentialsId: 'github-creds'
+                  ]]
+                ])
+            }
         }
-      }
-    }
 
-    stage('Push to Docker Hub') {
-      when {
-        expression { dockerImage != null }
-      }
-      steps {
-        script {
-          // uses credentials id 'dockerhub-creds' that you added in Jenkins
-          docker.withRegistry('', 'dockerhub-creds') {
-            dockerImage.push()
-            // optionally also push 'latest' tag
-            dockerImage.push('latest')
-          }
+        stage('Create Virtual Environment') {
+            steps {
+                sh '$PYTHON -m venv $VENV'
+                sh '$VENV/bin/pip install --upgrade pip'
+            }
         }
-      }
-    }
-  } // stages
 
-  post {
-    always {
-      echo "Build finished with status: ${currentBuild.currentResult}"
+        stage('Install Dependencies') {
+            steps {
+                sh '$VENV/bin/pip install -r requirements.txt'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh '$VENV/bin/pytest -v'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE .'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                                                  usernameVariable: 'USER',
+                                                  passwordVariable: 'PASS')]) {
+                    sh '''
+                      echo $PASS | docker login -u $USER --password-stdin
+                      docker push $IMAGE
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Container') {
+            steps {
+                sh '''
+                  docker pull $IMAGE
+                  docker stop ci-cd-demo || true
+                  docker rm ci-cd-demo || true
+                  docker run -d -p 5000:5000 --name ci-cd-demo $IMAGE
+                '''
+            }
+        }
     }
-    success {
-      echo "Image pushed: ${env.FULL_IMAGE}"
-    }
-    failure {
-      echo "Build failed - check console output"
-    }
-  }
 }

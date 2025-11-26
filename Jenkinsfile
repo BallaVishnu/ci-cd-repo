@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "ballavishnu/ci-cd-repo:jenkins"
+        IMAGE = "vishnu933/ci-cd-repo:jenkins"
     }
 
     stages {

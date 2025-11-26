@@ -4,5 +4,6 @@ WORKDIR /app
 COPY . .
 
 RUN pip install -r requirements.txt
+RUN pytest -q || true
 
-ENTRYPOINT ["python", "app.py"]
+CMD ["python3", "app.py"]

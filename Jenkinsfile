@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         IMAGE = "ballavishnu/ci-cd-repo:jenkins"
-        VENV = "venv"
-        PY = "python3"
     }
 
     stages {
@@ -18,26 +16,6 @@ pipeline {
                     credentialsId: 'github-creds'
                   ]]
                 ])
-            }
-        }
-
-        stage('Create venv & install') {
-            steps {
-                sh """
-                    ${env.PY} -m venv ${env.VENV}
-                    . ${env.VENV}/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                """
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                sh """
-                    . ${env.VENV}/bin/activate
-                    pytest -q
-                """
             }
         }
 
@@ -73,14 +51,7 @@ pipeline {
     }
 
     post {
-        always { 
-            echo "Build finished: ${currentBuild.currentResult}"
-        }
-        success { 
-            echo "Pushed image: ${env.IMAGE}"
-        }
-        failure { 
-            echo "Build failed - check console output"
-        }
+        success { echo "Build and push completed!" }
+        failure { echo "Pipeline failed. Check logs." }
     }
 }

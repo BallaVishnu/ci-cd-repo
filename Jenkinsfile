@@ -7,17 +7,6 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                checkout([$class: 'GitSCM',
-                  branches: [[name: '*/main']],
-                  userRemoteConfigs: [[
-                    url: 'https://github.com/BallaVishnu/ci-cd-repo.git',
-                    credentialsId: 'github-creds'
-                  ]]
-                ])
-            }
-        }
 
         stage('Build Docker Image') {
             steps {
